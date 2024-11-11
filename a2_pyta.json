@@ -1,0 +1,7 @@
+{
+     "allowed-import-modules": ["typing", "__future__",
+                                "python_ta", "doctest"],
+     "disable": ["E9998", "R0201"],
+     "max-args": 7,
+     "max-module-lines": 1600
+}
