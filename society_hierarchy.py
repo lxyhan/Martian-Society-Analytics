@@ -329,9 +329,14 @@ class Citizen:
         # - Recall that each Citizen's subordinates list is sorted in ascending
         #   order.
         # - Use the merge helper function.
-
-        # TODO: Complete this method.
-        pass
+        if not self._subordinates:
+            return []
+        else:
+            result = self._subordinates[:]
+            for subordinate in self._subordinates:
+                indirect_subordinates = subordinate.get_all_subordinates()
+                result = merge(result, indirect_subordinates)
+            return result
 
     def get_society_head(self) -> Citizen:
         """Return the head of the Society (i.e. the top-most superior Citizen,
@@ -348,8 +353,10 @@ class Citizen:
         """
         # Note: This method must call itself recursively
 
-        # TODO: Complete this method.
-        pass
+        if not self._superior:
+            return self
+        else:
+            return self._superior.get_society_head()
 
     def get_closest_common_superior(self, cid: int) -> Citizen:
         """Return the closest common superior that this Citizen and the
@@ -382,8 +389,16 @@ class Citizen:
         """
         # Note: This method must call itself recursively
 
-        # TODO: Complete this method.
-        pass
+        if self.cid == cid:
+            return self
+
+        # if the citizen with cid is a subordinate of self
+        if self.get_citizen(cid):
+            return self
+
+        # if the citizen with cid is a superior of self
+        if self._superior is not None:
+            return self._superior.get_closest_common_superior(cid)
 
     ###########################################################################
     # TODO Task 2.2
@@ -519,11 +534,7 @@ class Society:
         >>> o.get_citizen(2) is None
         True
         """
-        # Hint: Recall that self._head is a Citizen object, so any of Citizen's
-        # methods can be used as a helper method here.
-
-        # TODO: Complete this method.
-        pass
+        return self._head.get_citizen(cid)
 
     def add_citizen(self, citizen: Citizen, superior_id: int = None) -> None:
         """Add <citizen> to this Society as a subordinate of the Citizen with
@@ -555,8 +566,12 @@ class Society:
         >>> c1.get_superior() is c2
         True
         """
-        # TODO: Complete this method.
-        pass
+        if superior_id is None:
+            if self._head:
+                citizen.add_subordinate(self._head)
+            self._head = citizen
+        else:
+            self.get_citizen(superior_id).add_subordinate(citizen)
 
     def get_all_citizens(self) -> list[Citizen]:
         """Return a list of all citizens, in order of increasing cid.
@@ -577,8 +592,11 @@ class Society:
         >>> o.get_all_citizens() == [c1, c2, c3, c4, c5, c6]
         True
         """
-        # TODO: Complete this method.
-        pass
+        if not self._head:
+            return []
+        else:
+            subordinates = self._head.get_all_subordinates()
+            return merge([self._head], subordinates)
 
     def get_citizens_with_job(self, job: str) -> list[Citizen]:
         """Return a list of all citizens with the job <job>, in order of
@@ -600,8 +618,12 @@ class Society:
         >>> o.get_citizens_with_job('Manager') == [c1, c2, c4]
         True
         """
-        # TODO: Complete this method.
-        pass
+        all_citizens = self.get_all_citizens()
+        all_citizens_with_job = []
+        for citizen in all_citizens:
+            if citizen.job == job:
+                all_citizens_with_job.append(citizen)
+        return all_citizens_with_job
 
     ###########################################################################
     # TODO Task 2.3
