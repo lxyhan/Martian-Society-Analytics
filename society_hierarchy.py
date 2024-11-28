@@ -56,7 +56,7 @@ def merge(lst1: list, lst2: list) -> list:
 
 
 ###########################################################################
-# TODO Task 1: Citizen and Society
+# Task 1: Citizen and Society
 ###########################################################################
 class Citizen:
     """A Citizen: a citizen in a Society.
@@ -191,7 +191,7 @@ class Citizen:
         return self._subordinates[:]
 
     ###########################################################################
-    # TODO Task 1.1 (Helper methods)
+    # Task 1.1 (Helper methods)
     #
     # While not called by the client code, these methods may be helpful to
     # you and will be tested. You can (and should) call them in the other
@@ -306,7 +306,7 @@ class Citizen:
             return None
 
     ###########################################################################
-    # TODO Task 1.2
+    # Task 1.2
     ###########################################################################
 
     def get_all_subordinates(self) -> list[Citizen]:
@@ -401,7 +401,7 @@ class Citizen:
             return self._superior.get_closest_common_superior(cid)
 
     ###########################################################################
-    # TODO Task 2.2
+    # Task 2.2
     ###########################################################################
     def get_district_name(self) -> str:
         """Return the immediate district that the Citizen belongs to (or
@@ -419,9 +419,9 @@ class Citizen:
         'District A'
         """
         # Note: This method must call itself recursively
-
-        # TODO: Complete this method.
-        pass
+        if self.get_superior() is None:
+            return ""
+        return self.get_superior().get_district_name()
 
     def rename_district(self, district_name: str) -> None:
         """Rename the immediate district which this Citizen is a part of to
@@ -439,13 +439,12 @@ class Citizen:
         >>> c2.get_district_name()
         'District B'
         """
-        # Note: This method must call itself recursively
-
-        # TODO: Complete this method.
-        pass
+        superior = self.get_superior()
+        if superior is not None:
+            superior.rename_district(district_name)
 
     ###########################################################################
-    # TODO Task 3.2 Helper Method
+    # Task 3.2 Helper Method
     ###########################################################################
     def get_highest_rated_subordinate(self) -> Citizen:
         """Return the direct subordinate of this Citizen with the highest
@@ -468,8 +467,12 @@ class Citizen:
         """
         # Hint: This can be used as a helper function for `delete_citizen`
 
-        # TODO: Complete this method.
-        pass
+        direct_subordinates = self.get_direct_subordinates()
+        highest_rated = direct_subordinates[0]
+        for subordinate in direct_subordinates:
+            if subordinate.rating > highest_rated.rating:
+                highest_rated = subordinate
+        return highest_rated
 
 
 class Society:
@@ -520,7 +523,7 @@ class Society:
         self._head = new_head
 
     ###########################################################################
-    # TODO Task 1.3
+    # Task 1.3
     ###########################################################################
     def get_citizen(self, cid: int) -> Optional[Citizen]:
         """Return the Citizen in this Society who has the ID <cid>. If no such
@@ -534,7 +537,11 @@ class Society:
         >>> o.get_citizen(2) is None
         True
         """
-        return self._head.get_citizen(cid)
+        result = None
+        for citizen in self.get_all_citizens():
+            if citizen.cid == cid:
+                result = citizen
+        return result
 
     def add_citizen(self, citizen: Citizen, superior_id: int = None) -> None:
         """Add <citizen> to this Society as a subordinate of the Citizen with
@@ -626,7 +633,7 @@ class Society:
         return all_citizens_with_job
 
     ###########################################################################
-    # TODO Task 2.3
+    # Task 2.3
     ###########################################################################
     def change_citizen_type(self, cid: int,
                             district_name: Optional[str] = None) -> Citizen:
@@ -678,11 +685,30 @@ class Society:
         >>> new_c3.get_district_name() == "Finance"
         True
         """
-        # TODO: Complete this method.
-        pass
+        target = self.get_citizen(cid)
+
+        if target:
+            if isinstance(target, DistrictLeader):
+                new_citizen = Citizen(cid, target.manufacturer, target.model_year, target.job, target.rating)
+            else:
+                new_citizen = DistrictLeader(cid, target.manufacturer, target.model_year, target.job, target.rating,
+                                             district_name)
+            for subordinate in target.get_direct_subordinates():
+                new_citizen.add_subordinate(subordinate)
+                target.remove_subordinate(subordinate.cid)
+
+            superior = target.get_superior()
+            if superior is not None:
+                superior.remove_subordinate(target.cid)
+                superior.add_subordinate(new_citizen)
+
+            if target is self.get_head():
+                self.set_head(new_citizen)
+
+            return new_citizen
 
     ###########################################################################
-    # TODO Task 3.1
+    # Task 3.1
     ###########################################################################
     def _swap_up(self, citizen: Citizen) -> Citizen:
         """Swap <citizen> with their superior in this Society (they should
@@ -724,11 +750,38 @@ class Society:
         >>> isinstance(swapped_c4, DistrictLeader)
         True
         """
-        # Note: depending on how you implement this method, PyCharm may warn you
-        # that this method 'may be static' -- feel free to ignore this
+        superior = citizen.get_superior()
+        if isinstance(superior, DistrictLeader):
+            # swapped in wrong order!!!
+            citizen = self.change_citizen_type(citizen.cid, superior.get_district_name())
+            superior = self.change_citizen_type(superior.cid)
 
-        # TODO: Complete this method.
-        pass
+        # copy of subordinates
+        superior_subordinates = superior.get_direct_subordinates()
+        citizen_subordinates = citizen.get_direct_subordinates()
+
+        for subordinate in superior_subordinates:
+            # idea is to
+            # remove all superior subordinates
+            # add all superior subordinates to citizen except itself
+            if (subordinate.cid != citizen.cid):
+                citizen.add_subordinate(subordinate)
+            superior.remove_subordinate(subordinate.cid)
+
+        for subordinate in citizen_subordinates:
+            if subordinate not in superior.get_all_subordinates():
+                # print("adding subordinate" + str(subordinate.cid))
+                superior.add_subordinate(subordinate)
+                citizen.remove_subordinate(subordinate.cid)
+
+        if superior.get_superior() is not None:
+            superior.get_superior().add_subordinate(citizen)
+            superior.get_superior().remove_subordinate(superior.cid)
+
+        citizen.add_subordinate(superior)
+        superior.remove_subordinate(citizen.cid)
+        superior.job, citizen.job = citizen.job, superior.job
+        return citizen
 
     def promote_citizen(self, cid: int) -> None:
         """Promote the Citizen with cid <cid> until they either:
@@ -760,11 +813,28 @@ class Society:
         >>> c5 in promoted.get_direct_subordinates()
         True
         """
-        # TODO: Complete this method.
-        pass
+        citizen = self.get_citizen(cid)
+
+        # if immediate superior has lower rating, begin promotion
+        if citizen.get_superior().rating < citizen.rating:
+            last_swappable_superior = citizen.get_superior()
+
+            while last_swappable_superior.cid < citizen.cid:
+                # reached the top of the district
+                if isinstance(last_swappable_superior, DistrictLeader):
+                    break
+                last_swappable_superior = last_swappable_superior.get_superior()
+
+            subordinates = last_swappable_superior.get_all_subordinates()
+            while citizen in subordinates:
+                citizen = self._swap_up(citizen)
+
+        # else, do nothing
+        else:
+            return None
 
     ###########################################################################
-    # TODO Task 3.2
+    # Task 3.2
     ###########################################################################
 
     def delete_citizen(self, cid: int) -> None:
@@ -799,12 +869,31 @@ class Society:
         >>> all(c in c1.get_direct_subordinates() for c in [c4, c5, c3])
         True
         """
-        # TODO: Complete this method.
-        pass
+        citizen = self.get_citizen(cid)
+        superior = citizen.get_superior()
+        subordinates = citizen.get_direct_subordinates()
+
+        superior.remove_subordinate(citizen.cid)
+        for subordinate in subordinates:
+            superior.add_subordinate(subordinate)
+
+        if citizen is self.get_head():
+            if not citizen.get_direct_subordinates():
+                self._head = None
+            else:
+                highest_rated_subordinate = citizen.get_highest_rated_subordinate()
+                subordinates = citizen.get_direct_subordinates()
+                for subordinate in subordinates:
+                    if subordinate.cid != highest_rated_subordinate.cid:
+                        highest_rated_subordinate.add_subordinate(subordinate)
+                    citizen.remove_subordinate(subordinate.cid)
+
+                highest_rated_subordinate.set_superior(None)
+                self.set_head(highest_rated_subordinate)
 
 
 ###############################################################################
-# TODO Task 2: DistrictLeader
+# Task 2: DistrictLeader
 ###############################################################################
 class DistrictLeader(Citizen):
     """The leader of a district in a society.
@@ -840,7 +929,7 @@ class DistrictLeader(Citizen):
     _district_name: str
 
     ###########################################################################
-    # TODO Task 2.1
+    # Task 2.1
     ###########################################################################
     def __init__(self, cid: int, manufacturer: str, model_year: int,
                  job: str, rating: int, district: str) -> None:
@@ -857,8 +946,8 @@ class DistrictLeader(Citizen):
         >>> c2.get_district_name()
         'District A'
         """
-        # TODO: Complete this method.
-        pass
+        Citizen.__init__(self, cid, manufacturer, model_year, job, rating)
+        self._district_name = district
 
     def get_district_citizens(self) -> list[Citizen]:
         """Return a list of all citizens in this DistrictLeader's district, in
@@ -876,23 +965,21 @@ class DistrictLeader(Citizen):
         >>> c1.get_district_citizens() == [c1, c2, c3]
         True
         """
-        # TODO: Complete this method.
-        pass
+        citizen_list = self.get_all_subordinates()
+        return merge(citizen_list, [self])
 
     ###########################################################################
-    # TODO Task 2.2
+    # Task 2.2
     ###########################################################################
     def get_district_name(self) -> str:
         """Return the name of the district that this DistrictLeader leads.
         """
-        # TODO: Complete this method.
-        pass
+        return self._district_name
 
     def rename_district(self, district_name: str) -> None:
         """Rename this district leader's district to the given <district_name>.
         """
-        # TODO: Complete this method.
-        pass
+        self._district_name = district_name
 
 
 ###########################################################################
@@ -1018,18 +1105,18 @@ if __name__ == "__main__":
     # soc = promote_citizen_example()
     # soc.promote_citizen(11)
     # soc = create_from_file_example()
-    # print(soc)
+    print(soc)
 
     import doctest
+
     doctest.testmod()
 
-    CHECK_PYTA = True  # Set to False to disable pyta checking
-    if CHECK_PYTA:
-        import python_ta
-        python_ta.check_all(config={
-            'allowed-import-modules': ['typing', '__future__',
-                                       'python_ta', 'doctest'],
-            'disable': ['E9998', 'R0201'],
-            'max-args': 7,
-            'max-module-lines': 1600
-        })
+    # import python_ta
+    #
+    # python_ta.check_all(config={
+    #     'allowed-import-modules': ['typing', '__future__',
+    #                                'python_ta', 'doctest'],
+    #     'disable': ['E9998', 'R0201'],
+    #     'max-args': 7,
+    #     'max-module-lines': 1600
+    # })
